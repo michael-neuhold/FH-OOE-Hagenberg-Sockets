@@ -1,0 +1,3 @@
+/Users/michaelneuhold/Documents/FH/Semester/03_Semester/01_NET_UE/Socket_Programming_01/build/CMakeFiles/rebuild_cache.dir
+/Users/michaelneuhold/Documents/FH/Semester/03_Semester/01_NET_UE/Socket_Programming_01/build/CMakeFiles/edit_cache.dir
+/Users/michaelneuhold/Documents/FH/Semester/03_Semester/01_NET_UE/Socket_Programming_01/build/CMakeFiles/src.dir
