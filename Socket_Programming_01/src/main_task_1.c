@@ -4,6 +4,6 @@
 void server_process (int fd);
 
 int main() {
-  server_process(1);
+  server_process(0);
   return 0;
 }

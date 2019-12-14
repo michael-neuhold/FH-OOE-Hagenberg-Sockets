@@ -5,27 +5,10 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <arpa/inet.h>
 
 #define BUF_SIZE 500
 
 void server_process (int fd);
-
-
-char * get_ip_str ( const struct sockaddr *sa , char *s, size_t maxlen )
-{
-  switch (sa -> sa_family ) {
-    case AF_INET :
-      inet_ntop ( AF_INET , &((( struct sockaddr_in *) sa) -> sin_addr ),
-      s, maxlen );
-      printf("port: ", ntohs(&((( struct sockaddr_in *) sa) -> sin_addr )));// --> ntohs byteorder
-      break;
-    default :
-      strncpy (s, " Unknown AF", maxlen );
-     //return NULL ;
-  }
-  return s;
-}
 
 int main(int argc, char *argv[])
 {
@@ -37,13 +20,13 @@ int main(int argc, char *argv[])
     ssize_t nread;
     char buf[BUF_SIZE];
 
-   /* if (argc != 2) {
+    if (argc != 2) {
         fprintf(stderr, "Usage: %s port\n", argv[0]);
         exit(EXIT_FAILURE);
-    }*/
+    }
 
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
     hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
     hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
     hints.ai_protocol = 0;          /* Any protocol */
@@ -51,12 +34,11 @@ int main(int argc, char *argv[])
     hints.ai_addr = NULL;
     hints.ai_next = NULL;
 
-    // node = NULL
     // service = argv[1]
     // hints = &hints --> points to detailed specification
     // res = &reselt --> pointer pointer to addrinfo
     // returns s (int)
-    s = getaddrinfo(NULL, "3490", &hints, &result);
+    s = getaddrinfo(NULL, argv[1], &hints, &result);
 
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
@@ -104,15 +86,10 @@ int main(int argc, char *argv[])
       printf("could not listen!\n");
       exit(666);
     }
-   
-    int new_sfd = accept(sfd, rp -> ai_addr, &rp -> ai_addrlen);
 
-    char stri[INET_ADDRSTRLEN];
-
-    //******* Aufgabe 4
-    printf("address data: %s\n", get_ip_str(rp->ai_addr, stri, INET_ADDRSTRLEN));
-    //*******s
-    server_process(new_sfd);
-    close(new_sfd);   
-
+    while(1) {
+      int new_sfd = accept(sfd, rp -> ai_addr, &rp -> ai_addrlen);
+      server_process(new_sfd);
+      close(new_sfd); 
+    }
 }
