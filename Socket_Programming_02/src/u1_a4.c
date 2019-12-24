@@ -1,3 +1,4 @@
+#include <unistd.h> 
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +8,19 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+#include <signal.h>
+
 #define BUF_SIZE 500
+
+volatile int counter = 0;
+
+void waiter()
+{
+  int cpid, stat;
+  cpid = wait (&stat); /* wait for a child to terminate */
+  signal (SIGCHLD, waiter); /* reinstall signal handler */
+  counter--;
+}
 
 void server_process (int fd);
 
@@ -20,14 +33,25 @@ void get_ip_str ( const struct sockaddr *sa , char *s, size_t maxlen )
       printf("Clients Port: %d\n", ntohs(&((( struct sockaddr_in *) sa) -> sin_addr )));// --> ntohs byteorder
       break;
     default :
-      strncpy (s, " Unknown AF", maxlen );
-  }
+        strncpy (s, " Unknown AF", maxlen );
+    }
 }
 
 int main(int argc, char *argv[])
 {
+    // install signal handler
+    signal (SIGCHLD, waiter);
+
+
     struct addrinfo hints;
     struct addrinfo *result, *rp;
+
+    //***** in loop 
+    struct sockaddr_in *client;
+    int client_len;
+    //*****
+
+
     int sfd, s;
     struct sockaddr_storage peer_addr;
     socklen_t peer_addr_len;
@@ -48,41 +72,25 @@ int main(int argc, char *argv[])
     hints.ai_addr = NULL;
     hints.ai_next = NULL;
 
-    // node = NULL
-    // service = argv[1]
-    // hints = &hints --> points to detailed specification
-    // res = &reselt --> pointer pointer to addrinfo
-    // returns s (int)
-    s = getaddrinfo(NULL, "3490", &hints, &result);
+
+    s = getaddrinfo(NULL, argv[1], &hints, &result);
 
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         exit(EXIT_FAILURE);
     }
 
-    /* getaddrinfo() returns a list of address structures.
-      Try each address until we successfully bind(2).
-      If socket(2) (or bind(2)) fails, we (close the socket
-      and) try the next address. */
-
     // iterate over getaddrinfo returned address data
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-        // allocate socket
-          // socket type
-          // transport service (sock_stream, sock_dgram, sock_raw)
-          // special protocol
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 
-        // ******** Aufgabe 3
+        if (sfd == -1)
+          continue;
+
         // necessary to use same port
         int on = 1;
         setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-        // ********
 
-        if (sfd == -1)
-            continue;
-
-        // bind socket to local port
         if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
           break;
 
@@ -102,15 +110,24 @@ int main(int argc, char *argv[])
       exit(666);
     }
 
+    int new_sfd;
+    int pid;
+
     while(1) {
-      //******* Aufgabe 2
-      int new_sfd = accept(sfd, rp -> ai_addr, &rp -> ai_addrlen);
-      char stri[INET_ADDRSTRLEN];
-      //******* Aufgabe 4
-      get_ip_str(rp->ai_addr, stri, INET_ADDRSTRLEN);
-      //*******
-      server_process(new_sfd);
-      close(new_sfd); 
-      //*******
+      new_sfd = accept(sfd, &client, &client_len);
+      counter++;
+      pid = fork();
+      if(pid == 0) {
+        printf("Number of connected clients: %d\n", counter);
+        close(sfd);
+        server_process(new_sfd);
+        close(new_sfd); 
+        exit(0);
+      } else if(pid > 0) {
+        printf("dies ist die pid: %d\n", pid);
+        close(new_sfd); 
+      } else {
+        close(new_sfd);
+      }
     }
 }
