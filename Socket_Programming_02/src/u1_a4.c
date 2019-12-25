@@ -65,13 +65,8 @@ int main(int argc, char *argv[])
 
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
+    hints.ai_socktype = SOCK_STREAM; /* TCP connection */
     hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
-    hints.ai_protocol = 0;          /* Any protocol */
-    hints.ai_canonname = NULL;
-    hints.ai_addr = NULL;
-    hints.ai_next = NULL;
-
 
     s = getaddrinfo(NULL, argv[1], &hints, &result);
 
@@ -106,12 +101,12 @@ int main(int argc, char *argv[])
 
     /* Read datagrams and echo them back to sender */
     if(listen(sfd,3) < 0) {
-      printf("could not listen!\n");
-      exit(666);
+      printf("<< error (listen) >>!\n");
+      exit(1);
     }
 
     int new_sfd;
-    int pid;
+    pid_t pid;
 
     while(1) {
       new_sfd = accept(sfd, &client, &client_len);
@@ -121,13 +116,14 @@ int main(int argc, char *argv[])
         printf("Number of connected clients: %d\n", counter);
         close(sfd);
         server_process(new_sfd);
-        close(new_sfd); 
+        close(new_sfd); // is not used any more
         exit(0);
       } else if(pid > 0) {
         printf("dies ist die pid: %d\n", pid);
-        close(new_sfd); 
+        close(new_sfd); // is not used any more
       } else {
-        close(new_sfd);
+        printf("fork faild");
+        return EXIT_FAILURE;
       }
     }
 }

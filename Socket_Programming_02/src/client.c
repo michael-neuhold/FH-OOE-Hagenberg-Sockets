@@ -5,8 +5,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <errno.h>
 
 #define BUF_SIZE 500
+
+#define MAXSIZE 256
+#define STDOUT 1
+#define STDIN 0
+
 
 int main(int argc, char *argv[])
 {
@@ -16,6 +24,9 @@ int main(int argc, char *argv[])
     size_t len;
     ssize_t nread;
     char buf[BUF_SIZE];
+
+    int cSocket, nrRead, nrWrite, r;   
+    int in, out;  
 
     if (argc < 3) {
         fprintf(stderr, "Usage: %s host port msg...\n", argv[0]);
@@ -31,6 +42,7 @@ int main(int argc, char *argv[])
     hints.ai_protocol = 0;          /* Any protocol */
 
     s = getaddrinfo(argv[1], argv[2], &hints, &result);
+
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         exit(EXIT_FAILURE);
@@ -42,8 +54,7 @@ int main(int argc, char *argv[])
       and) try the next address. */
 
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-        sfd = socket(rp->ai_family, rp->ai_socktype,
-                    rp->ai_protocol);
+        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sfd == -1)
             continue;
 
@@ -60,32 +71,40 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(result);           /* No longer needed */
 
-    /* Send remaining command-line arguments as separate
-      datagrams, and read responses from server */
+    in = sfd;
+	  out = STDOUT;
 
-    for (j = 3; j < argc; j++) {
-        len = strlen(argv[j]) + 1;
-                /* +1 for terminating null byte */
+   while (1) {
+		/* read from input */
+		nrRead = read(in, buf, MAXSIZE);
+		if (nrRead < 0) {
+			perror("error reading from input");
+			exit(1);
+		} else if (nrRead == 0) {
+			/* EOF */
+			break;
+		}
 
-        if (len > BUF_SIZE) {
-            fprintf(stderr,
-                    "Ignoring long message in argument %d\n", j);
-            continue;
-        }
+		/* write to output */
+		nrWrite = write(out, buf, nrRead);
+		if (nrWrite != nrRead) {
+			perror("error writing to output");
+			exit(1); 
+		} /* if */
 
-        if (write(sfd, argv[j], len) != len) {
-            fprintf(stderr, "partial/failed write\n");
-            exit(EXIT_FAILURE);
-        }
+		/* switch input/output */
+		if (in==sfd) {
+			in = STDIN;
+			out = sfd;
+		}
+		else {
+			in = sfd;
+			out = STDOUT;
+		}
+	} /* while */
 
-        nread = read(sfd, buf, BUF_SIZE);
-        if (nread == -1) {
-            perror("read");
-            exit(EXIT_FAILURE);
-        }
+	close(cSocket);
 
-        printf("Received %zd bytes: %s\n", nread, buf);
-    }
-
-    exit(EXIT_SUCCESS);
+    //exit(EXIT_SUCCESS);
+    return 0;
 }
