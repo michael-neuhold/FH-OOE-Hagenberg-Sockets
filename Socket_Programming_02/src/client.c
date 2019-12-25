@@ -9,91 +9,90 @@
 #include <netdb.h>
 #include <errno.h>
 
-#define BUF_SIZE 500
-
 #define MAXSIZE 256
 #define STDOUT 1
 #define STDIN 0
 
-
 int main(int argc, char *argv[])
 {
-    struct addrinfo hints;
-    struct addrinfo *result, *rp;
-    int sfd, s, j;
-    size_t len;
-    ssize_t nread;
-    char buf[BUF_SIZE];
+  struct addrinfo hints;
+  struct addrinfo *result, *rp;
+  int sfd, s;
 
-    int cSocket, nrRead, nrWrite, r;   
-    int in, out;  
+  // check correct number of parameters
+  if (argc < 3) {
+    fprintf(stderr, "Usage: %s host port msg...\n", argv[0]);
+    return EXIT_FAILURE;
+  }
 
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s host port msg...\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
+  memset(&hints, 0, sizeof(struct addrinfo)); // empty struct
+  hints.ai_family = AF_INET;                  // Allow IPv4 or IPv6 
+  hints.ai_socktype = SOCK_STREAM;            // STREAM TCP
+                                              // AI PASSIVE not necessary, Address gets passed via an argument
 
-    /* Obtain address(es) matching host/port */
+  // result points on linked list
+  s = getaddrinfo(argv[1], argv[2], &hints, &result);
 
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM; /* STREAM TCP */
-    hints.ai_flags = 0;
-    hints.ai_protocol = 0;          /* Any protocol */
+  // catch getaddrinfo error
+  if (s != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+    return EXIT_FAILURE;
+  }
 
-    s = getaddrinfo(argv[1], argv[2], &hints, &result);
+  // iterate through list
+  for (rp = result; rp != NULL; rp = rp->ai_next) {
+    sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 
-    if (s != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(EXIT_FAILURE);
-    }
+    // not valid
+    if (sfd == -1)
+      continue;
 
-    /* getaddrinfo() returns a list of address structures.
-      Try each address until we successfully connect(2).
-      If socket(2) (or connect(2)) fails, we (close the socket
-      and) try the next address. */
+    // valid
+    if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+      break;                  
 
-    for (rp = result; rp != NULL; rp = rp->ai_next) {
-        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (sfd == -1)
-            continue;
+    close(sfd);
+  }
 
-        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-            break;                  /* Success */
+  // if end of list --> no address succeeded
+  if (rp == NULL) {
+      fprintf(stderr, "Could not connect\n");
+      return EXIT_FAILURE;
+  }
 
-        close(sfd);
-    }
+  // free memory of linked list
+  freeaddrinfo(result);
 
-    if (rp == NULL) {               /* No address succeeded */
-        fprintf(stderr, "Could not connect\n");
-        exit(EXIT_FAILURE);
-    }
+  /* ==== communication ==== */
+  char buf[MAXSIZE];
+  int nrRead, nrWrite;   
+  int in, out;  
 
-    freeaddrinfo(result);           /* No longer needed */
+  // set initial read/write sequence
+  in = sfd;
+  out = STDOUT;
 
-    in = sfd;
-	  out = STDOUT;
+  while (1) {
 
-   while (1) {
-		/* read from input */
+		// read from input
 		nrRead = read(in, buf, MAXSIZE);
 		if (nrRead < 0) {
 			perror("error reading from input");
-			exit(1);
+			return EXIT_FAILURE;
 		} else if (nrRead == 0) {
 			/* EOF */
 			break;
 		}
 
-		/* write to output */
+		// write to output
 		nrWrite = write(out, buf, nrRead);
 		if (nrWrite != nrRead) {
 			perror("error writing to output");
-			exit(1); 
-		} /* if */
+			return EXIT_FAILURE;
+		}
 
-		/* switch input/output */
-		if (in==sfd) {
+		// switch input/output
+		if (in == sfd) {
 			in = STDIN;
 			out = sfd;
 		}
@@ -101,10 +100,9 @@ int main(int argc, char *argv[])
 			in = sfd;
 			out = STDOUT;
 		}
-	} /* while */
+	}
 
-	close(cSocket);
+	close(sfd);
 
-    //exit(EXIT_SUCCESS);
-    return 0;
+  return EXIT_SUCCESS;
 }
