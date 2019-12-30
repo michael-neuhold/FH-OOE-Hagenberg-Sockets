@@ -37,7 +37,7 @@ void comm(int tfd, int nfd)
       /*
        * If an error occurred, just return.
        */
-      if (pfd[i].revents&(POLLERR/*|POLLHUP*/|POLLNVAL)) {
+      if (pfd[i].revents&(POLLERR|POLLHUP|POLLNVAL)) { // POLLHUP does not work on MAC OS (EOF ERROR)
         return;
       }
         

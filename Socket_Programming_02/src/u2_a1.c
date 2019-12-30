@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   pid_t pid;
 
   while(1) {
-    new_sfd = accept(sfd, &client, &client_len);
+    new_sfd = accept(sfd, (struct sockaddr*)&client, (socklen_t*)&client_len);
     // catch accept error
     if(new_sfd == -1) 
       return EXIT_FAILURE;
