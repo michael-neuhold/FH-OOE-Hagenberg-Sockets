@@ -37,9 +37,10 @@ void comm(int tfd, int nfd)
       /*
        * If an error occurred, just return.
        */
-      if (pfd[i].revents&(POLLERR|POLLHUP|POLLNVAL))
+      if (pfd[i].revents&(POLLERR/*|POLLHUP*/|POLLNVAL)) {
         return;
-
+      }
+        
       /*
        * If there are data present, read them from
        * one file descriptor and write them to the
