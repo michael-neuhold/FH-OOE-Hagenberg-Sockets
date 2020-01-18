@@ -116,10 +116,16 @@ int main(void)
         else {
           if(service_do(i) == 0) { // << added >>
             // client finished game
+            printf("fd: %d\n", i);
             if(i == fdmax) {
               /*TODO*/
+              printf("update max");
+              fdmax--;
             }
             service_exit(i);
+            close(i);
+            FD_CLR(i, &master); // remove from master set
+            
           }
         } // END handle data from client
       }   // END got new incoming connection
