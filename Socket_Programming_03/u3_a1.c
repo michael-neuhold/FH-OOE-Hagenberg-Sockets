@@ -7,19 +7,26 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include "service.h"
 
-#define PORT "9034" // port we're listening on
+/*
+ * 
+ * NEUHOLD MICHAEL
+ * 
+ * /
 
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa) {
-  if (sa->sa_family == AF_INET) {
-    return &(((struct sockaddr_in *)sa)->sin_addr);
-  }
-
-  return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+/* find new max fd */
+void set_fdmax(int* prev_fdmax, fd_set* master) {
+    int max = 0;
+    for (int i = 0; i < *prev_fdmax; i++) {
+        if (FD_ISSET(i, master) && (i > max)) {
+            max = i;
+        }
+    } 
+    *prev_fdmax = max;
 }
 
-int main(void)
+int main(const int argc, const char *argv[])
 {
   fd_set master;   // master file descriptor list
   fd_set read_fds; // temp file descriptor list for select()
@@ -36,6 +43,12 @@ int main(void)
 
   struct addrinfo hints, *ai, *p;
 
+  // need a PORT^^
+  if(argc != 2) {
+    perror("missing port argument!");
+    exit(1);
+  }
+
   FD_ZERO(&master); // clear the master and temp sets
   FD_ZERO(&read_fds);
 
@@ -44,7 +57,7 @@ int main(void)
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
-  if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
+  if ((rv = getaddrinfo(NULL, argv[1], &hints, &ai)) != 0) {
     fprintf(stderr, "selectserver: %s\n", gai_strerror(rv));
     exit(1);
   }
@@ -62,7 +75,6 @@ int main(void)
       close(listener);
       continue;
     }
-
     break;
   }
 
@@ -116,16 +128,13 @@ int main(void)
         else {
           if(service_do(i) == 0) { // << added >>
             // client finished game
-            printf("fd: %d\n", i);
             if(i == fdmax) {
-              /*TODO*/
-              printf("update max");
-              fdmax--;
+              // set new fd max 
+              set_fdmax(&fdmax,&master); // << added >>
             }
-            service_exit(i);
-            close(i);
+            close(i);           // close fd
             FD_CLR(i, &master); // remove from master set
-            
+            service_exit(i);    // << added >>
           }
         } // END handle data from client
       }   // END got new incoming connection

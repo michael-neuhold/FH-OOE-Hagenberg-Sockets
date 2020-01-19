@@ -127,7 +127,7 @@ static state* store(int fd){
 
 	aState->next = clients;
 	clients = aState;
-	print();
+  print();
 	return clients;
 } /* store */
 
@@ -171,7 +171,6 @@ static void removeClient(int fd){
 	free (act);
 	print();
 } /* remove */
-
 
 /*
  * Insert a new client for service
